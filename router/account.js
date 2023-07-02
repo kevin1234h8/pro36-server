@@ -42,10 +42,8 @@ router.get("/", (req, res) => {
       values.push(createdDate);
     }
 
-    console.log("query", query2, "values : ", values);
     query2 += " ORDER BY created_date DESC LIMIT ? OFFSET ?";
     values.push(pageSize, offset);
-    console.log(query2, values);
     connection.query(query1, valuesCount, (err, results1) => {
       if (err) {
         connection.release();
@@ -77,12 +75,12 @@ router.get("/:id", async (req, res) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
     }
-    let query = `SELECT * FROM account WHERE id = ?`;
+    let sql = `SELECT * FROM account WHERE id = ?`;
     if (search !== "") {
-      query += " AND client_name = ? ";
+      sql += " AND client_name = ? ";
       values.push(`%${search}%`);
     }
-    connection.query(query, values, (err, results) => {
+    connection.query(sql, values, (err, results) => {
       connection.release();
       if (err) {
         res.status(500).json({ error: "Internal server error" });
@@ -135,7 +133,6 @@ router.post("/create", (req, res) => {
       created_by,
       owner,
     ];
-    console.log(regist_date, expired_date);
     connection.query(query, values, (err, results) => {
       connection.release();
 
@@ -191,7 +188,6 @@ router.put("/:id", async (req, res) => {
       modified_by,
       id,
     ];
-    console.log(values);
     connection.query(query, values, (err, results) => {
       connection.release();
       if (err) {
@@ -208,7 +204,6 @@ router.put("/delete/:id", (req, res) => {
   const { deleted_by } = req.body;
   const values = [deleted_by, id];
 
-  console.log(id, deleted_by);
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: "internal server error" });
@@ -216,7 +211,6 @@ router.put("/delete/:id", (req, res) => {
     }
     const query =
       "UPDATE account SET status = 2, deleted_by = ?, deleted_date = CURRENT_TIMESTAMP , restored_by = '' , restored_date = null WHERE id = ?";
-    console.log(values);
     connection.query(query, values, (err, results) => {
       connection.release();
       if (err) {

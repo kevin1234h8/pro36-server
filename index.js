@@ -68,7 +68,6 @@ app.post("/stats", upload.single("uploaded_file"), function (req, res) {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      console.log("results : ", results);
       if (results.length > 0) {
         const previousPicturePath = path.join(
           __dirname,
@@ -76,8 +75,6 @@ app.post("/stats", upload.single("uploaded_file"), function (req, res) {
           results[0].path
         );
 
-        console.log("Previous picture deleted successfully.");
-        console.log("previousPicturePath : ", previousPicturePath);
         // After deleting the previous picture, proceed with inserting the new picture
         const values = [originalname, filename, userId];
         const insertQuery = `UPDATE avatar SET image = ? , path = ?  WHERE user_id = ?`;
@@ -111,7 +108,6 @@ app.post("/stats", upload.single("uploaded_file"), function (req, res) {
       }
     });
   });
-  console.log(req.file);
 });
 
 app.get("/avatar/:userId", (req, res) => {
@@ -177,6 +173,6 @@ app.post("/login", authMiddleware, (req, res) => {
   res.json({ message: "Login successful" });
 });
 
-app.listen("5000", () => {
+app.listen(process.env.PORT, () => {
   console.log(`the server is running at port ${process.env.PORT}`);
 });

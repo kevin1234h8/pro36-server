@@ -161,7 +161,6 @@ router.get("/input-invoice-summary", (req, res) => {
       values.unshift(owner);
     }
     query += " ORDER BY created_date DESC LIMIT ? OFFSET ?";
-    console.log(query, values);
     connection.query(query1, valuesCount, (err, results1) => {
       const totalInvoiceSummary = results1[0].count;
       connection.query(query, values, (err, results2) => {
@@ -477,7 +476,6 @@ router.put("/input-invoice-summary/:invoiceId", async (req, res) => {
 
 router.post("/input-invoice-summary/owner", (req, res) => {
   const owner = req.body.owner;
-  console.log(owner);
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
