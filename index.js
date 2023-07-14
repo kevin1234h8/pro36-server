@@ -23,6 +23,7 @@ app.use(
     credentials: true,
   })
 );
+
 app.use("/uploads", express.static("uploads"));
 app.use("/account", accountRouter);
 app.use("/ex-account", exAccountRouter);
