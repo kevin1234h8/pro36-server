@@ -347,7 +347,42 @@ router.get("/input-invoice-summary/:id", async (req, res) => {
       res.status(500).json({ error: "Internal server error" });
     }
     const query = `SELECT * FROM invoice_summary WHERE id = ?`;
-    connection.query(query, id, (err, results) => {
+    connection.query(query, [id], (err, results) => {
+      connection.release();
+      if (err) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+      res.status(200).json({ inputInvoiceSummary: results[0] });
+    });
+  });
+});
+router.get("/input-invoice-summary-details/:id", async (req, res) => {
+  const id = req.params.id;
+  pool.getConnection((err, connection) => {
+    if (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+    const query = `SELECT * FROM invoice_summary WHERE id = ?`;
+    connection.query(query, [id], (err, results) => {
+      connection.release();
+      if (err) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+      res.status(200).json({ inputInvoiceSummary: results[0] });
+    });
+  });
+});
+
+router.get("/input-invoice-summary-client-name/:id", async (req, res) => {
+  const id = req.params.id;
+  pool.getConnection((err, connection) => {
+    if (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+    const query = `SELECT * FROM invoice_summary WHERE id = ?`;
+    connection.query(query, [id], (err, results) => {
       connection.release();
       if (err) {
         res.status(500).json({ error: "Internal server error" });
@@ -364,7 +399,25 @@ router.get("/input-invoice-summary/:invoiceNo(*)", async (req, res) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
     }
-    const query = `SELECT invsum.* , invdet.period_from , invdet.period_to , invdet.account_no , invdet.broker_name , invdet.profit , invdet.service_cost , invdet.cost_in_rupiah FROM invoice_summary invsum LEFT JOIN invoice_details invdet ON invsum.no_invoice = invdet.no_invoice WHERE invsum.no_invoice = ?`;
+    const query = `SELECT invsum.* , invdet.period_from , invdet.period_to , invdet.account_no , invdet.broker_name , invdet.profit , invdet.service_cost , invdet.cost_in_rupiah FROM invoice_summary invsum LEFT JOIN invoice_details invdet ON invsum.no_invoice = invdet.no_invoice WHERE invsum.id = ? `;
+    connection.query(query, [invoiceNo], (err, results) => {
+      connection.release();
+      if (err) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+      res.status(200).json({ inputInvoiceSummary: results });
+    });
+  });
+});
+
+router.get("/input-invoice-details/:invoiceNo(*)", async (req, res) => {
+  const invoiceNo = req.params.invoiceNo;
+  pool.getConnection((err, connection) => {
+    if (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+    const query = `SELECT * FROM invoice_details WHERE no_invoice = ?`;
     connection.query(query, [invoiceNo], (err, results) => {
       connection.release();
       if (err) {
@@ -415,6 +468,7 @@ router.get("/input-invoice-details/:owner/:accountNo", async (req, res) => {
       query += ` AND account_no = ?`;
       values.push(accountNo);
     }
+    console.log(query, values);
     connection.query(query, values, (err, results) => {
       connection.release();
       if (err) {

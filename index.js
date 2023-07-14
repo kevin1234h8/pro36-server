@@ -11,13 +11,15 @@ const path = require("path");
 const pool = require("./database/connection");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
+const licenseExpiredReportRouter = require("./router/licenseExpiredReport");
+const clientReportRouter = require("./router/clientReport");
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "https://pro36-client.vercel.app/",
+    origin: process.env.CORS_ORIGIN_DEPLOYMENT,
     credentials: true,
   })
 );
@@ -26,6 +28,8 @@ app.use("/account", accountRouter);
 app.use("/ex-account", exAccountRouter);
 app.use("/input-invoice", inputInvoice);
 app.use("/user", userRouter);
+app.use("/license-expired-report", licenseExpiredReportRouter);
+app.use("/client-report", clientReportRouter);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {

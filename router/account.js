@@ -1,59 +1,89 @@
 const router = require("express").Router();
 const pool = require("../database/connection");
+const limiter = require("../utils/rateLimitUtils");
+const jwtUtils = require("../utils/jwtUtils");
 
-router.get("/", (req, res) => {
+router.get("/", jwtUtils.authMiddleware, (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 20;
-  const search = req.query.search || "";
+  const searchQuery = req.query.search || "";
   const offset = (page - 1) * pageSize;
   const owner = req.query.owner || "";
-  const valuesCount = [];
-  const values = [];
-  var currentDate = new Date();
-  var years = new Date(currentDate);
-  years.setFullYear(currentDate.getFullYear() - 10);
+  const countValues = [];
+  const queryValues = [];
+  const currentDate = new Date();
+  const tenYearsAgo = new Date(
+    currentDate.getFullYear() - 10,
+    currentDate.getMonth(),
+    currentDate.getDate()
+  );
   const createdDate =
-    req.query.createdDate || years.toISOString().substring(0, 10);
+    req.query.createdDate || tenYearsAgo.toISOString().substring(0, 10);
+
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
       return;
     }
 
-    let query1 = "SELECT COUNT(*) as count FROM account WHERE status = 1";
-    if (search !== "") {
-      query1 += " AND client_name LIKE ?";
-      valuesCount.unshift(`%${search}%`);
-    }
-    if (owner !== "") {
-      query1 += " AND owner = ?";
-      valuesCount.unshift(owner);
+    let countQuery = "";
+    let dataQuery = "";
+
+    if (req.user.level === 1) {
+      countQuery = "SELECT COUNT(*) as count FROM account WHERE status = 1";
+      if (searchQuery !== "") {
+        countQuery += " AND client_name LIKE ?";
+        countValues.unshift(`%${searchQuery}%`);
+      }
+
+      dataQuery = `SELECT a.*, s.status FROM account a 
+                    LEFT JOIN status s ON a.status = s.id 
+                    WHERE a.status = 1 AND client_name LIKE ?`;
+      queryValues.unshift(`%${searchQuery}%`);
+
+      if (owner !== "") {
+        dataQuery += " AND owner = ?";
+        queryValues.push(owner);
+      }
+      if (createdDate !== "") {
+        dataQuery += " AND a.created_date BETWEEN ? AND NOW()";
+        queryValues.push(createdDate);
+      }
+    } else if (req.user.level === 2) {
+      countQuery = `SELECT COUNT(*) as count FROM account a 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE status = 1 AND u.level NOT IN (1)`;
+      if (searchQuery !== "") {
+        countQuery += " AND client_name LIKE ?";
+        countValues.unshift(`%${searchQuery}%`);
+      }
+      dataQuery = `SELECT a.*, s.status FROM account a 
+                    LEFT JOIN status s ON a.status = s.id 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE a.status = 1 AND client_name LIKE ? AND u.level NOT IN (1)`;
+      queryValues.unshift(`%${searchQuery}%`);
+
+      if (createdDate !== "") {
+        dataQuery += " AND a.created_date BETWEEN ? AND NOW()";
+        queryValues.push(createdDate);
+      }
     }
 
-    let query2 =
-      "SELECT a.*, s.status FROM account a LEFT JOIN status s ON a.status = s.id WHERE a.status = 1 AND client_name LIKE ?";
-    values.unshift(`%${search}%`);
-    if (owner !== "") {
-      query2 += " AND owner = ?";
-      values.push(owner);
-    }
-    if (createdDate !== "") {
-      query2 += " AND a.created_date BETWEEN ? AND NOW()";
-      values.push(createdDate);
-    }
+    dataQuery += " ORDER BY created_date DESC LIMIT ? OFFSET ?";
+    queryValues.push(pageSize, offset);
 
-    query2 += " ORDER BY created_date DESC LIMIT ? OFFSET ?";
-    values.push(pageSize, offset);
-    connection.query(query1, valuesCount, (err, results1) => {
+    console.log(dataQuery, queryValues);
+
+    connection.query(countQuery, countValues, (err, countResult) => {
       if (err) {
         connection.release();
         res.status(500).json({ error: "Internal server error" });
         return;
       }
 
-      const totalAccount = results1[0].count;
+      const totalAccount = countResult[0].count;
 
-      connection.query(query2, values, (err, results2) => {
+      connection.query(dataQuery, queryValues, (err, dataResult) => {
         connection.release();
 
         if (err) {
@@ -61,7 +91,7 @@ router.get("/", (req, res) => {
           return;
         }
 
-        res.status(200).json({ totalAccount, accounts: results2 });
+        res.status(200).json({ totalAccount, accounts: dataResult });
       });
     });
   });
@@ -91,7 +121,7 @@ router.get("/:id", async (req, res) => {
   });
 });
 
-router.post("/create", (req, res) => {
+router.post("/create", limiter, (req, res) => {
   const {
     id,
     client_name,

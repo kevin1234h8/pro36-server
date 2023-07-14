@@ -1,10 +1,11 @@
 const router = require("express").Router();
 const pool = require("../database/connection");
+const jwtUtils = require("../utils/jwtUtils");
 
-router.get("/", (req, res) => {
+router.get("/", jwtUtils.authMiddleware, (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 20;
-  const search = req.query.search || "";
+  const searchQuery = req.query.search || "";
   const offset = (page - 1) * pageSize;
   const values = [pageSize, offset];
 
@@ -14,25 +15,48 @@ router.get("/", (req, res) => {
       return;
     }
 
-    let query1 = "SELECT COUNT(*) as count FROM account WHERE status = 2";
-    if (search !== "") {
-      query1 += " AND client_name LIKE ?";
-      values.push(`%${search}%`);
+    let countQuery = "";
+    let dataQuery = "";
+
+    if (req.user.level === 1) {
+      countQuery = "SELECT COUNT(*) as count FROM account WHERE status = 2";
+      if (searchQuery !== "") {
+        countQuery += " AND client_name LIKE ?";
+        values.push(`%${searchQuery}%`);
+      }
+
+      dataQuery = `SELECT a.*, s.status FROM account a 
+                    LEFT JOIN status s ON a.status = s.id 
+                    WHERE a.status = 2 AND client_name LIKE ? 
+                    ORDER BY created_date DESC LIMIT ? OFFSET ?`;
+      values.unshift(`%${searchQuery}%`);
+    } else if (req.user.level === 2) {
+      countQuery = `SELECT COUNT(*) as count FROM account a 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE status = 2 AND u.level NOT IN (1)`;
+      if (searchQuery !== "") {
+        countQuery += " AND client_name LIKE ?";
+        values.push(`%${searchQuery}%`);
+      }
+
+      dataQuery = `SELECT a.*, s.status FROM account a 
+                    LEFT JOIN status s ON a.status = s.id 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE a.status = 2 AND client_name LIKE ? AND u.level NOT IN (1) 
+                    ORDER BY created_date DESC LIMIT ? OFFSET ?`;
+      values.unshift(`%${searchQuery}%`);
     }
 
-    const query2 =
-      "SELECT a.*, s.status FROM account a LEFT JOIN status s ON a.status = s.id WHERE a.status = 2 AND client_name LIKE ? ORDER BY created_date DESC LIMIT ? OFFSET ?";
-    values.unshift(`%${search}%`);
-    connection.query(query1, values, (err, results1) => {
+    connection.query(countQuery, values, (err, countResult) => {
       if (err) {
         connection.release();
         res.status(500).json({ error: "Internal server error" });
         return;
       }
 
-      const totalAccount = results1[0].count;
+      const totalAccount = countResult[0].count;
 
-      connection.query(query2, values, (err, results2) => {
+      connection.query(dataQuery, values, (err, dataResult) => {
         connection.release();
 
         if (err) {
@@ -40,7 +64,7 @@ router.get("/", (req, res) => {
           return;
         }
 
-        res.status(200).json({ totalAccount, exAccounts: results2 });
+        res.status(200).json({ totalAccount, exAccounts: dataResult });
       });
     });
   });
