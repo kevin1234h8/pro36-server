@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const pool = require("../database/connection");
 const { v4 } = require("uuid");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwtUtils = require("../utils/jwtUtils");
 const jwt = require("jsonwebtoken");
 let refreshTokens = [];
