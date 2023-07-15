@@ -2,7 +2,7 @@ const router = require("express").Router();
 const pool = require("../database/connection");
 const jwtUtils = require("../utils/jwtUtils");
 
-router.get("/", jwtUtils.authMiddleware, (req, res) => {
+router.get("/", jwtUtils.verify, (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 20;
   const searchQuery = req.query.search || "";

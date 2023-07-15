@@ -22,8 +22,7 @@ const generateRefreshToken = (user) => {
 };
 
 const verify = (req, res, next) => {
-  const authHeader = req.headers.authorization || req.cookies.jwt;
-  console.log(req.cookies);
+  const authHeader = req.headers.authorization;
   if (authHeader) {
     const token = authHeader.split(" ")[1];
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, result) => {

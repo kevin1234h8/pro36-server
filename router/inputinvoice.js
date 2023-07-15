@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const pool = require("../database/connection");
 const { v4 } = require("uuid");
-
+const jwtUtils = require("../utils/jwtUtils");
 function getNextNumber(maxNumber) {
   if (maxNumber === null || maxNumber === undefined) {
     return "00001";
@@ -52,7 +52,7 @@ router.get("/input-invoice", (req, res) => {
   });
 });
 
-router.get("/input-invoice-details", (req, res) => {
+router.get("/input-invoice-details", jwtUtils.verify, (req, res) => {
   const search = req.query.search || "";
   const owner = req.query.owner || "";
   var currentDate = new Date();
@@ -65,22 +65,62 @@ router.get("/input-invoice-details", (req, res) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
     }
-    let query = `SELECT * FROM invoice_details WHERE 1 = 1`;
-    if (search !== "") {
-      query += " AND broker_name LIKE ?";
-      values.unshift(`%${search}%`);
+    let query = "";
+    if (req.user.level === 1) {
+      query = `SELECT * FROM invoice_details WHERE 1 = 1`;
+      if (search !== "") {
+        query += " AND broker_name LIKE ?";
+        values.unshift(`%${search}%`);
+      }
+      if (createdDate !== "") {
+        query += " AND created_date BETWEEN ? AND NOW()";
+        values.push(createdDate);
+      } else {
+        query += " AND created_date = ?";
+        values.push(createdDate);
+      }
+      if (owner !== "") {
+        query += " AND owner = ?";
+        values.push(owner);
+      }
+    } else if (req.user.level === 2) {
+      query = `SELECT  id.* FROM invoice_details  id 
+      LEFT JOIN user u ON id.owner = u.id WHERE 1 = 1  AND u.level NOT in (1)`;
+      if (search !== "") {
+        query += " AND broker_name LIKE ?";
+        values.unshift(`%${search}%`);
+      }
+      if (createdDate !== "") {
+        query += " AND id.created_date BETWEEN ? AND NOW()";
+        values.push(createdDate);
+      } else {
+        query += " AND id.created_date = ?";
+        values.push(createdDate);
+      }
+      if (owner !== "") {
+        query += " AND id.owner = ?";
+        values.push(owner);
+      }
+    } else if (req.user.level === 3) {
+      query = `SELECT  id.* FROM invoice_details  id 
+      LEFT JOIN user u ON id.owner = u.id WHERE 1 = 1  AND u.level NOT in (1 , 2)`;
+      if (search !== "") {
+        query += " AND broker_name LIKE ?";
+        values.unshift(`%${search}%`);
+      }
+      if (createdDate !== "") {
+        query += " AND id.created_date BETWEEN ? AND NOW()";
+        values.push(createdDate);
+      } else {
+        query += " AND id.created_date = ?";
+        values.push(createdDate);
+      }
+      if (owner !== "") {
+        query += " AND id.owner = ?";
+        values.push(owner);
+      }
     }
-    if (createdDate !== "") {
-      query += " AND created_date BETWEEN ? AND NOW()";
-      values.push(createdDate);
-    } else {
-      query += " AND created_date = ?";
-      values.push(createdDate);
-    }
-    if (owner !== "") {
-      query += " AND owner = ?";
-      values.push(owner);
-    }
+    console.log(query, values);
     connection.query(query, values, (err, results) => {
       connection.release();
       if (err) {
@@ -91,26 +131,75 @@ router.get("/input-invoice-details", (req, res) => {
     });
   });
 });
-router.get("/input-invoice-details/:createdDate", (req, res) => {
-  const createdDate = req.params.createdDate;
+
+// router.get("/input-invoice-details/:createdDate", (req, res) => {
+//   const createdDate = req.params.createdDate;
+
+//   pool.getConnection((err, connection) => {
+//     if (err) {
+//       res.status(500).json({ error: "Internal server error" });
+//     }
+//     let query = `SELECT * FROM invoice_details WHERE 1 = 1`;
+//     if (search !== "") {
+//       query += " AND broker_name LIKE ?";
+//       values.unshift(`%${search}%`);
+//     }
+//     if (createdDate !== "") {
+//       query += " AND created_date = ? ";
+//       values.push(createdDate);
+//     }
+
+//     if (owner !== "") {
+//       query += " AND owner = ?";
+//       values.push(owner);
+//     }
+//     connection.query(query, values, (err, results) => {
+//       connection.release();
+//       if (err) {
+//         res.status(500).json({ error: "Internal server error" });
+//         return;
+//       }
+//       res.status(200).json({ inputInvoiceDetails: results });
+//     });
+//   });
+// });
+
+router.get("/input-invoice-details/:invoiceDetailsId", (req, res) => {
+  const invoiceDetailsId = req.params.invoiceDetailsId;
+  pool.getConnection((err, connection) => {
+    if (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+    let query = `SELECT * FROM invoice_details WHERE 1 = 1`;
+    query += " AND id = ?";
+
+    connection.query(query, [invoiceDetailsId], (err, results) => {
+      connection.release();
+      if (err) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+      res.status(200).json({ inputInvoiceDetails: results[0] });
+    });
+  });
+});
+
+router.get("/input-invoice-details/:clientName", (req, res) => {
+  const clientName = req.params.clientName;
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
     }
     let query = `SELECT * FROM invoice_details WHERE 1 = 1`;
     if (search !== "") {
-      query += " AND broker_name LIKE ?";
+      query += " AND clientName LIKE ?";
       values.unshift(`%${search}%`);
     }
-    if (createdDate !== "") {
+    if (clientName !== "") {
       query += " AND created_date = ? ";
-      values.push(createdDate);
+      values.push(clientName);
     }
 
-    if (owner !== "") {
-      query += " AND owner = ?";
-      values.push(owner);
-    }
     connection.query(query, values, (err, results) => {
       connection.release();
       if (err) {
@@ -122,12 +211,12 @@ router.get("/input-invoice-details/:createdDate", (req, res) => {
   });
 });
 
-router.get("/input-invoice-summary", (req, res) => {
+router.get("/input-invoice-summary", jwtUtils.verify, (req, res) => {
   const search = req.query.search || "";
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 20;
-  const offset = (page - 1) * pageSize;
   const owner = req.query.owner;
+  const offset = (page - 1) * pageSize;
   const values = [pageSize, offset];
   const valuesCount = [];
   const createdDate = req.query.createdDate || "";
@@ -136,29 +225,87 @@ router.get("/input-invoice-summary", (req, res) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
     }
-    let query1 = "SELECT COUNT(*) as count FROM invoice_summary WHERE 1 = 1";
-    if (search !== "") {
-      query1 += " AND client_name LIKE ?";
-      valuesCount.push(`%${search}%`);
-    }
-    if (owner) {
-      query1 += " AND owner = ?";
-      valuesCount.unshift(owner);
-    }
-    let query = `SELECT * FROM invoice_summary  WHERE 1 = 1  `;
-    if (search !== "") {
-      query += " AND client_name LIKE ?";
-      values.unshift(`%${search}%`);
-    }
+    let query1 = "";
+    let query = "";
+    if (req.user.level === 1) {
+      query1 = "SELECT COUNT(*) as count FROM invoice_summary WHERE 1 = 1";
+      if (search !== "") {
+        query1 += " AND client_name LIKE ?";
+        valuesCount.push(`%${search}%`);
+      }
+      if (owner) {
+        query1 += " AND owner = ?";
+        valuesCount.unshift(owner);
+      }
+      query = `SELECT * FROM invoice_summary  WHERE 1 = 1  `;
+      if (search !== "") {
+        query += " AND client_name LIKE ?";
+        values.unshift(`%${search}%`);
+      }
 
-    if (createdDate) {
-      query += " AND created_date BETWEEN ? AND NOW()";
-      values.unshift(createdDate);
-    }
+      if (createdDate) {
+        query += " AND created_date BETWEEN ? AND NOW()";
+        values.unshift(createdDate);
+      }
 
-    if (owner) {
-      query += " AND owner = ?";
-      values.unshift(owner);
+      if (owner) {
+        query += " AND owner = ?";
+        values.unshift(owner);
+      }
+    } else if (req.user.level === 2) {
+      query1 = `SELECT COUNT(*) FROM invoice_summary invsum
+      LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1)`;
+      if (search !== "") {
+        query1 += " AND invsum.client_name LIKE ?";
+        valuesCount.push(`%${search}%`);
+      }
+      if (owner) {
+        query1 += " AND invsum.owner = ?";
+        valuesCount.unshift(owner);
+      }
+      query = `SELECT invsum.* FROM invoice_summary invsum
+      LEFT JOIN user u ON invsum.owner = u.id  WHERE 1 = 1 AND u.level NOT in (1) `;
+      if (search !== "") {
+        query += " AND invsum.client_name LIKE ?";
+        values.unshift(`%${search}%`);
+      }
+
+      if (createdDate) {
+        query += " AND invsum.created_date BETWEEN ? AND NOW()";
+        values.unshift(createdDate);
+      }
+
+      if (owner) {
+        query += " AND invsum.owner = ?";
+        values.unshift(owner);
+      }
+    } else if (req.user.level === 3) {
+      query1 = `SELECT COUNT(*) FROM invoice_summary invsum
+      LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1 , 2)`;
+      if (search !== "") {
+        query1 += " AND invsum.client_name LIKE ?";
+        valuesCount.push(`%${search}%`);
+      }
+      if (owner) {
+        query1 += " AND invsum.owner = ?";
+        valuesCount.unshift(owner);
+      }
+      query = `SELECT invsum.* FROM invoice_summary invsum
+      LEFT JOIN user u ON invsum.owner = u.id  WHERE 1 = 1 AND u.level NOT in (1 , 2) `;
+      if (search !== "") {
+        query += " AND invsum.client_name LIKE ?";
+        values.unshift(`%${search}%`);
+      }
+
+      if (createdDate) {
+        query += " AND invsum.created_date BETWEEN ? AND NOW()";
+        values.unshift(createdDate);
+      }
+
+      if (owner) {
+        query += " AND invsum.owner = ?";
+        values.unshift(owner);
+      }
     }
     query += " ORDER BY created_date DESC LIMIT ? OFFSET ?";
     connection.query(query1, valuesCount, (err, results1) => {
@@ -179,9 +326,9 @@ router.get("/input-invoice-summary", (req, res) => {
 
 router.post("/input-invoice-details/create", async (req, res) => {
   const values = req.body.values;
-
   const insertData = async (value) => {
     const [
+      id,
       no_invoice,
       period_from,
       period_to,
@@ -195,6 +342,7 @@ router.post("/input-invoice-details/create", async (req, res) => {
     ] = value;
 
     const values = [
+      id,
       no_invoice,
       period_from,
       period_to,
@@ -219,7 +367,7 @@ router.post("/input-invoice-details/create", async (req, res) => {
       });
 
       const query =
-        "INSERT INTO invoice_details(no_invoice, period_from, period_to, account_no, broker_name, profit, service_cost, cost_in_rupiah, created_by, created_date , owner) VALUES (?,?,?,?,?,?,?,?,?, CURRENT_TIMESTAMP , ?)";
+        "INSERT INTO invoice_details(id , no_invoice, period_from, period_to, account_no, broker_name, profit, service_cost, cost_in_rupiah, created_by, created_date , owner) VALUES (? , ?,?,?,?,?,?,?,?,?, CURRENT_TIMESTAMP , ?)";
 
       await new Promise((resolve, reject) => {
         connection.query(query, values, (err, results) => {

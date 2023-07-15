@@ -4,6 +4,7 @@ const { v4 } = require("uuid");
 const bcrypt = require("bcryptjs");
 const jwtUtils = require("../utils/jwtUtils");
 const jwt = require("jsonwebtoken");
+const limiter = require("../utils/rateLimitUtils");
 let refreshTokens = [];
 
 const getUserByName = (name) => {
@@ -101,7 +102,7 @@ router.post("/create", jwtUtils.authMiddleware, async (req, res) => {
   });
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", limiter, async (req, res) => {
   const { username, password } = req.body;
 
   const users = await getUserByName(username);
@@ -123,9 +124,9 @@ router.post("/login", async (req, res) => {
       const accessToken = jwtUtils.generateAccessToken(user);
       const refreshToken = jwtUtils.generateRefreshToken(user);
       refreshTokens.push(refreshToken);
-      res.cookie("jwt", accessToken, {
-        maxAge: 3 * 24 * 60 * 60 * 1000,
-      });
+      // res.cookie("jwt", accessToken, {
+      //   maxAge: 3 * 24 * 60 * 60 * 1000,
+      // });
       res.status(200).json({
         message: "Login successful",
         data: { id: user.id, name: user.name, level: user.level },
@@ -136,7 +137,7 @@ router.post("/login", async (req, res) => {
   });
 });
 
-router.get("/profile", jwtUtils.authMiddleware, (req, res) => {
+router.get("/profile", jwtUtils.verify, (req, res) => {
   const user = req.user;
   res.json({ user, message: "Protected route accessed successfully" });
 });

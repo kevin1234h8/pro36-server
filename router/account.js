@@ -3,7 +3,7 @@ const pool = require("../database/connection");
 const limiter = require("../utils/rateLimitUtils");
 const jwtUtils = require("../utils/jwtUtils");
 
-router.get("/", jwtUtils.authMiddleware, (req, res) => {
+router.get("/", jwtUtils.verify, (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 20;
   const searchQuery = req.query.search || "";
