@@ -67,6 +67,24 @@ router.get("/", jwtUtils.verify, (req, res) => {
         dataQuery += " AND a.created_date BETWEEN ? AND NOW()";
         queryValues.push(createdDate);
       }
+    } else if (req.user.level === 3) {
+      countQuery = `SELECT COUNT(*) as count FROM account a 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE status = 1 AND u.level NOT IN (1,2)`;
+      if (searchQuery !== "") {
+        countQuery += " AND client_name LIKE ?";
+        countValues.unshift(`%${searchQuery}%`);
+      }
+      dataQuery = `SELECT a.*, s.status FROM account a 
+                    LEFT JOIN status s ON a.status = s.id 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE a.status = 1 AND client_name LIKE ? AND u.level NOT IN (1 , 2)`;
+      queryValues.unshift(`%${searchQuery}%`);
+
+      if (createdDate !== "") {
+        dataQuery += " AND a.created_date BETWEEN ? AND NOW()";
+        queryValues.push(createdDate);
+      }
     }
 
     dataQuery += " ORDER BY created_date DESC LIMIT ? OFFSET ?";

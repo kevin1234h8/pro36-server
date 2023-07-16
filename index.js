@@ -19,7 +19,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "https://pro36.netlify.app",
     credentials: true, //access-control-allow-credentials:true
   })
 );

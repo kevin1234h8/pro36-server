@@ -45,6 +45,21 @@ router.get("/", jwtUtils.verify, (req, res) => {
                     WHERE a.status = 2 AND client_name LIKE ? AND u.level NOT IN (1) 
                     ORDER BY created_date DESC LIMIT ? OFFSET ?`;
       values.unshift(`%${searchQuery}%`);
+    } else if (req.user.level === 3) {
+      countQuery = `SELECT COUNT(*) as count FROM account a 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE status = 2 AND u.level NOT IN (1 , 2)`;
+      if (searchQuery !== "") {
+        countQuery += " AND client_name LIKE ?";
+        values.push(`%${searchQuery}%`);
+      }
+
+      dataQuery = `SELECT a.*, s.status FROM account a 
+                    LEFT JOIN status s ON a.status = s.id 
+                    LEFT JOIN user u ON a.owner = u.id 
+                    WHERE a.status = 2 AND client_name LIKE ? AND u.level NOT IN (1 , 2) 
+                    ORDER BY created_date DESC LIMIT ? OFFSET ?`;
+      values.unshift(`%${searchQuery}%`);
     }
 
     connection.query(countQuery, values, (err, countResult) => {

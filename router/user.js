@@ -45,17 +45,57 @@ router.get("/", async (req, res) => {
   });
 });
 
-router.post("/create", jwtUtils.authMiddleware, async (req, res) => {
+router.post("/create", jwtUtils.verify, async (req, res) => {
   const id = v4();
-  const { username, level, createdBy, modifiedBy } = req.body;
+  const { username, level, createdBy, modifiedBy, password } = req.body;
   const hashPassword = await bcrypt.hash(password, 10);
-
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
       return;
     }
     if (req.user.level === 1) {
+      const checkQuery = "SELECT COUNT(*) AS count FROM user WHERE name = ?";
+      const checkValues = [username.toLowerCase()];
+
+      connection.query(checkQuery, checkValues, (err, checkResult) => {
+        if (err) {
+          connection.release();
+          res.status(500).json({ error: "Internal server error" });
+          return;
+        }
+
+        const userExists = checkResult[0].count > 0;
+
+        if (userExists) {
+          connection.release();
+          res.status(400).json({ error: "Username already exists" });
+          return;
+        }
+
+        // Insert the new user
+        const insertQuery = `INSERT INTO user(id, name, hash_password, level, created_by, created_date, modified_by, modified_date) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP)`;
+        const insertValues = [
+          id,
+          username.toLowerCase(),
+          hashPassword,
+          level,
+          createdBy,
+          modifiedBy,
+        ];
+
+        connection.query(insertQuery, insertValues, (err, insertResult) => {
+          connection.release();
+
+          if (err) {
+            res.status(500).json({ error: "Internal server error" });
+            return;
+          }
+
+          res.status(200).json({ message: "Success", data: insertResult });
+        });
+      });
+    } else if (req.user.level === 2) {
       const checkQuery = "SELECT COUNT(*) AS count FROM user WHERE name = ?";
       const checkValues = [username.toLowerCase()];
 

@@ -184,6 +184,27 @@ router.get("/input-invoice-details/:invoiceDetailsId", (req, res) => {
   });
 });
 
+router.get("/input-invoice-details/:invoiceNo(*)", (req, res) => {
+  const invoiceNo = req.params.invoiceNo;
+  console.log(invoiceNo);
+  pool.getConnection((err, connection) => {
+    if (err) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+    let query = `SELECT * FROM invoice_details WHERE 1 = 1`;
+    query += " AND no_invoice = ?";
+
+    connection.query(query, [invoiceNo], (err, results) => {
+      connection.release();
+      if (err) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+      res.status(200).json({ inputInvoiceDetails: results });
+    });
+  });
+});
+
 router.get("/input-invoice-details/:clientName", (req, res) => {
   const clientName = req.params.clientName;
   pool.getConnection((err, connection) => {
@@ -307,7 +328,7 @@ router.get("/input-invoice-summary", jwtUtils.verify, (req, res) => {
         values.unshift(owner);
       }
     }
-    query += " ORDER BY created_date DESC LIMIT ? OFFSET ?";
+    query += " ORDER BY no_invoice DESC LIMIT ? OFFSET ?";
     connection.query(query1, valuesCount, (err, results1) => {
       const totalInvoiceSummary = results1[0].count;
       connection.query(query, values, (err, results2) => {

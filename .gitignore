@@ -1,4 +1,6 @@
-.vercel
+vercel.json
 .env
+.vercel
 # dependencies
-/node_modules
+node_modules
+
