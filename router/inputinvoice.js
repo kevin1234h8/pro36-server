@@ -274,7 +274,7 @@ router.get("/input-invoice-summary", jwtUtils.verify, (req, res) => {
         values.unshift(owner);
       }
     } else if (req.user.level === 2) {
-      query1 = `SELECT COUNT(*) FROM invoice_summary invsum
+      query1 = `SELECT COUNT(*) as count FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1)`;
       if (search !== "") {
         query1 += " AND invsum.client_name LIKE ?";
@@ -301,7 +301,7 @@ router.get("/input-invoice-summary", jwtUtils.verify, (req, res) => {
         values.unshift(owner);
       }
     } else if (req.user.level === 3) {
-      query1 = `SELECT COUNT(*) FROM invoice_summary invsum
+      query1 = `SELECT COUNT(*) as count FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1 , 2)`;
       if (search !== "") {
         query1 += " AND invsum.client_name LIKE ?";
@@ -464,7 +464,8 @@ router.post("/input-invoice-summary/create", (req, res) => {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-
+      const message = `created a new input invoice (${invoiceNo}) on`;
+      addNotification(created_by, message, created_by);
       res.status(200).json({ message: "success", data: results });
     });
   });
@@ -650,52 +651,58 @@ router.get("/input-invoice-details/:owner/:accountNo", async (req, res) => {
   });
 });
 
-router.put("/input-invoice-summary/:invoiceId", async (req, res) => {
-  const invoiceId = req.params.invoiceId;
-  const {
-    clientName,
-    serviceFee,
-    rate,
-    city,
-    country,
-    bankName,
-    beneficiaryName,
-    bankNo,
-    modifiedBy,
-  } = req.body;
+router.put(
+  "/input-invoice-summary/:invoiceId/:invoiceNo(*)",
+  async (req, res) => {
+    const invoiceNo = req.params.invoiceNo;
+    const invoiceId = req.params.invoiceId;
+    const {
+      clientName,
+      serviceFee,
+      rate,
+      city,
+      country,
+      bankName,
+      beneficiaryName,
+      bankNo,
+      modifiedBy,
+    } = req.body;
 
-  const values = [
-    clientName,
-    serviceFee,
-    rate,
-    city,
-    country,
-    bankName,
-    beneficiaryName,
-    bankNo,
-    modifiedBy,
-    invoiceId,
-  ];
+    const values = [
+      clientName,
+      serviceFee,
+      rate,
+      city,
+      country,
+      bankName,
+      beneficiaryName,
+      bankNo,
+      modifiedBy,
+      invoiceId,
+    ];
 
-  pool.getConnection((err, connection) => {
-    if (err) {
-      res.status(500).json({ error: "Internal server error" });
-      return;
-    }
-    let query =
-      "UPDATE invoice_summary SET client_name = ? ,service_fee = ? ,rate = ? ,city = ? ,country = ? , bank_name = ? ,bank_beneficiary = ? ,bank_no = ? ,modified_by = ? ,modified_date = CURRENT_TIMESTAMP  WHERE id = ? ";
-    connection.query(query, values, (err, results) => {
-      connection.release();
+    pool.getConnection((err, connection) => {
       if (err) {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      res
-        .status(200)
-        .json({ message: "invoice deleted successfully", results });
+      let query =
+        "UPDATE invoice_summary SET client_name = ? ,service_fee = ? ,rate = ? ,city = ? ,country = ? , bank_name = ? ,bank_beneficiary = ? ,bank_no = ? ,modified_by = ? ,modified_date = CURRENT_TIMESTAMP  WHERE id = ? ";
+      connection.query(query, values, (err, results) => {
+        connection.release();
+        if (err) {
+          res.status(500).json({ error: "Internal server error" });
+          return;
+        }
+        const message = `updated an input invoice (${invoiceNo}) on`;
+        addNotification(modifiedBy, message, modifiedBy);
+        res
+          .status(200)
+          .json({ message: "invoice deleted successfully", results });
+      });
     });
-  });
-});
+  }
+);
 
 router.post("/input-invoice-summary/owner", (req, res) => {
   const owner = req.body.owner;
@@ -716,26 +723,97 @@ router.post("/input-invoice-summary/owner", (req, res) => {
   });
 });
 
-router.delete("/input-invoice-summary/:invoiceId", async (req, res) => {
-  const invoiceId = req.params.invoiceId;
-  pool.getConnection((err, connection) => {
-    if (err) {
-      res.status(500).json({ error: "Internal server error" });
-      return;
-    }
-    let query = "DELETE FROM invoice_summary WHERE id = ?";
-    connection.query(query, [invoiceId], (err, results) => {
-      connection.release();
+router.delete(
+  "/input-invoice-summary/:invoiceId/:deletedBy/:invoiceNo(*)",
+  async (req, res) => {
+    // const { deleted_by } = req.body;
+    // console.log(deleted_by);
+    const invoiceId = req.params.invoiceId;
+    const deletedBy = req.params.deletedBy;
+    const invoiceNo = req.params.invoiceNo;
+    console.log("invoiceId : ", invoiceId);
+    pool.getConnection((err, connection) => {
       if (err) {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
+      let query = "DELETE FROM invoice_summary WHERE id = ?";
+      connection.query(query, [invoiceId], (err, results) => {
+        connection.release();
+        if (err) {
+          res.status(500).json({ error: "Internal server error" });
+          return;
+        }
+        const message = `deleted an input invoice (${invoiceNo}) on`;
+        addNotification(deletedBy, message, deletedBy);
+        res
+          .status(200)
+          .json({ message: "invoice deleted successfully", results });
+      });
+    });
+  }
+);
+const addNotification = (userId, message, createdBy) => {
+  const id = v4();
+  const query = `INSERT INTO notifications (id , user_id, message , created_by , part) VALUES (? , ?, ? , ? , 'Input Invoice')`;
+  const values = [id, userId, message, createdBy];
+  console.log("values : ", values);
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting database connection: ", err);
+      return;
+    }
 
-      res
-        .status(200)
-        .json({ message: "invoice deleted successfully", results });
+    connection.query(query, values, (err, results) => {
+      connection.release();
+      if (err) {
+        console.error("Error executing query: ", err);
+        return;
+      }
+      addSeenStatus(userId, id);
+      console.log("Notification added successfully");
     });
   });
-});
+};
+
+const addSeenStatus = (userId, notificationId) => {
+  const query = "SELECT id FROM user";
+
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting database connection: ", err);
+      return;
+    }
+
+    connection.query(query, (err, users) => {
+      if (err) {
+        console.error("Error executing query: ", err);
+        connection.release();
+        return;
+      }
+
+      // Iterate over each user and insert into seen_status table
+      users.forEach((user) => {
+        const id = v4(); // Assuming you have a method to generate a unique ID, such as uuid/v4
+        const insertQuery =
+          "INSERT INTO seen_status (id, user_id, notification_id, seen) VALUES (?, ?, ?, 0)";
+        const values = [id, user.id, notificationId]; // Replace `notificationId` with the actual notification ID
+
+        connection.query(insertQuery, values, (err, results) => {
+          if (err) {
+            console.error("Error executing query: ", err);
+          } else {
+            console.log(
+              "Notification added successfully for user ID:",
+              user.id
+            );
+          }
+        });
+      });
+
+      connection.release();
+    });
+  });
+};
 
 module.exports = router;

@@ -13,7 +13,7 @@ const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const licenseExpiredReportRouter = require("./router/licenseExpiredReport");
 const clientReportRouter = require("./router/clientReport");
-
+const notificationsRouter = require("./router/notifications");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
@@ -31,6 +31,7 @@ app.use("/input-invoice", inputInvoice);
 app.use("/user", userRouter);
 app.use("/license-expired-report", licenseExpiredReportRouter);
 app.use("/client-report", clientReportRouter);
+app.use("/notifications", notificationsRouter);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
