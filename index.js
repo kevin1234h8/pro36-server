@@ -31,7 +31,7 @@ app.use("/input-invoice", inputInvoice);
 app.use("/user", userRouter);
 app.use("/license-expired-report", licenseExpiredReportRouter);
 app.use("/client-report", clientReportRouter);
-app.use("/notifications", notificationsRouter);
+// app.use("/notifications", notificationsRouter);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {

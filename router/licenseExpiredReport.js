@@ -94,15 +94,10 @@ router.get("/", jwtUtils.verify, (req, res) => {
           " AND STR_TO_DATE(acc.expired_date, '%d-%m-%Y') BETWEEN STR_TO_DATE(?, '%d-%m-%Y') AND STR_TO_DATE(?, '%d-%m-%Y') ";
         values.push(startDate, endDate);
       }
-      sql += " ORDER BY acc.expired_date DESC";
+      sql += " ORDER BY acc.expired_date ";
     }
     sql += " LIMIT ? OFFSET ?";
     values.push(pageSize, offset);
-
-    console.log("sql", sql);
-    console.log("values", values);
-    console.log("sql", sqlCount);
-    console.log("values", valuesCount);
 
     connection.query(sqlCount, valuesCount, (err, countResult) => {
       if (err) {

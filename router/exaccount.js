@@ -20,46 +20,46 @@ router.get("/", jwtUtils.verify, (req, res) => {
     let dataQuery = "";
 
     if (req.user.level === 1) {
-      countQuery = "SELECT COUNT(*) as count FROM account WHERE status = 2";
+      countQuery = "SELECT COUNT(*) as count FROM account a WHERE status = 2";
       if (searchQuery !== "") {
-        countQuery += " AND client_name LIKE ?";
+        countQuery += " AND a.account_no LIKE ?";
         values.push(`%${searchQuery}%`);
       }
 
       dataQuery = `SELECT a.*, s.status FROM account a 
                     LEFT JOIN status s ON a.status = s.id 
-                    WHERE a.status = 2 AND client_name LIKE ? 
-                    ORDER BY created_date DESC LIMIT ? OFFSET ?`;
+                    WHERE a.status = 2 AND a.account_no LIKE ? 
+                    ORDER BY a.regist_date DESC, a.created_date DESC LIMIT ? OFFSET ?`;
       values.unshift(`%${searchQuery}%`);
     } else if (req.user.level === 2) {
       countQuery = `SELECT COUNT(*) as count FROM account a 
                     LEFT JOIN user u ON a.owner = u.id 
                     WHERE status = 2 AND u.level NOT IN (1)`;
       if (searchQuery !== "") {
-        countQuery += " AND client_name LIKE ?";
+        countQuery += " AND a.account_no LIKE ?";
         values.push(`%${searchQuery}%`);
       }
 
       dataQuery = `SELECT a.*, s.status FROM account a 
                     LEFT JOIN status s ON a.status = s.id 
                     LEFT JOIN user u ON a.owner = u.id 
-                    WHERE a.status = 2 AND client_name LIKE ? AND u.level NOT IN (1) 
-                    ORDER BY created_date DESC LIMIT ? OFFSET ?`;
+                    WHERE a.status = 2 AND a.account_no LIKE ? AND u.level NOT IN (1) 
+                    ORDER BY a.regist_date DESC, a.created_date DESC LIMIT ? OFFSET ?`;
       values.unshift(`%${searchQuery}%`);
     } else if (req.user.level === 3) {
       countQuery = `SELECT COUNT(*) as count FROM account a 
                     LEFT JOIN user u ON a.owner = u.id 
                     WHERE status = 2 AND u.level NOT IN (1 , 2)`;
       if (searchQuery !== "") {
-        countQuery += " AND client_name LIKE ?";
+        countQuery += " AND a.account_no LIKE ?";
         values.push(`%${searchQuery}%`);
       }
 
       dataQuery = `SELECT a.*, s.status FROM account a 
                     LEFT JOIN status s ON a.status = s.id 
                     LEFT JOIN user u ON a.owner = u.id 
-                    WHERE a.status = 2 AND client_name LIKE ? AND u.level NOT IN (1 , 2) 
-                    ORDER BY created_date DESC LIMIT ? OFFSET ?`;
+                    WHERE a.status = 2 AND a.account_no LIKE ? AND u.level NOT IN (1 , 2) 
+                    ORDER BY a.regist_date DESC, a.created_date DESC LIMIT ? OFFSET ?`;
       values.unshift(`%${searchQuery}%`);
     }
 
@@ -121,8 +121,8 @@ router.put("/restore/:id", (req, res) => {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      const message = `restored an account on`;
-      addNotification(restored_by, message, restored_by);
+      // const message = `restored an account on`;
+      // addNotification(restored_by, message, restored_by);
       res.json({ message: "success", data: results });
     });
   });

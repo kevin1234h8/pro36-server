@@ -258,19 +258,19 @@ router.get("/input-invoice-summary", jwtUtils.verify, (req, res) => {
         query1 += " AND owner = ?";
         valuesCount.unshift(owner);
       }
-      query = `SELECT * FROM invoice_summary  WHERE 1 = 1  `;
+      query = `SELECT invsum.* FROM invoice_summary  invsum  WHERE 1 = 1  `;
       if (search !== "") {
-        query += " AND client_name LIKE ?";
+        query += " AND invsum.client_name LIKE ?";
         values.unshift(`%${search}%`);
       }
 
       if (createdDate) {
-        query += " AND created_date BETWEEN ? AND NOW()";
+        query += " AND invsum.created_date BETWEEN ? AND NOW()";
         values.unshift(createdDate);
       }
 
       if (owner) {
-        query += " AND owner = ?";
+        query += " AND invsum.owner = ?";
         values.unshift(owner);
       }
     } else if (req.user.level === 2) {
@@ -328,7 +328,8 @@ router.get("/input-invoice-summary", jwtUtils.verify, (req, res) => {
         values.unshift(owner);
       }
     }
-    query += " ORDER BY no_invoice DESC LIMIT ? OFFSET ?";
+    query +=
+      "   ORDER BY invsum.date DESC , invsum.no_invoice DESC LIMIT ? OFFSET ?";
     connection.query(query1, valuesCount, (err, results1) => {
       const totalInvoiceSummary = results1[0].count;
       connection.query(query, values, (err, results2) => {
@@ -344,12 +345,10 @@ router.get("/input-invoice-summary", jwtUtils.verify, (req, res) => {
     });
   });
 });
-
 router.post("/input-invoice-details/create", async (req, res) => {
   const values = req.body.values;
   const insertData = async (value) => {
     const [
-      id,
       no_invoice,
       period_from,
       period_to,
@@ -362,8 +361,11 @@ router.post("/input-invoice-details/create", async (req, res) => {
       owner,
     ] = value;
 
-    const values = [
-      id,
+    // Remove the reassignment of 'values' here
+    const id = v4(); // Generate a new UUID for 'id' column
+
+    const data = [
+      id, // Use the generated UUID for 'id' column
       no_invoice,
       period_from,
       period_to,
@@ -388,10 +390,10 @@ router.post("/input-invoice-details/create", async (req, res) => {
       });
 
       const query =
-        "INSERT INTO invoice_details(id , no_invoice, period_from, period_to, account_no, broker_name, profit, service_cost, cost_in_rupiah, created_by, created_date , owner) VALUES (? , ?,?,?,?,?,?,?,?,?, CURRENT_TIMESTAMP , ?)";
+        "INSERT INTO invoice_details(id , no_invoice, period_from, period_to, account_no, broker_name, profit, service_cost, cost_in_rupiah, created_by, created_date, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)";
 
       await new Promise((resolve, reject) => {
-        connection.query(query, values, (err, results) => {
+        connection.query(query, data, (err, results) => {
           connection.release();
           if (err) {
             reject(err);
@@ -400,6 +402,7 @@ router.post("/input-invoice-details/create", async (req, res) => {
           }
         });
       });
+      console.log(query, data);
 
       return;
     } catch (error) {
@@ -412,6 +415,83 @@ router.post("/input-invoice-details/create", async (req, res) => {
     res.status(200).json({ message: "success" });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.put("/input-invoice-details/:noInvoice(*)", async (req, res) => {
+  const values = req.body.data;
+  const noInvoice = req.params.noInvoice;
+
+  try {
+    const connection = await new Promise((resolve, reject) => {
+      pool.getConnection((err, connection) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(connection);
+        }
+      });
+    });
+
+    // Use Promise.all to await all the queries to complete
+    await Promise.all(
+      values.map(async (value) => {
+        const [
+          account_no,
+          broker_name,
+          profit,
+          service_cost,
+          cost_in_rupiah,
+          modified_by,
+          id,
+        ] = value;
+
+        const updateQuery =
+          "UPDATE invoice_details " +
+          "SET " +
+          "account_no = ?, " +
+          "broker_name = ?, " +
+          "profit = ?, " +
+          "service_cost = ?, " +
+          "cost_in_rupiah = ?, " +
+          "modified_by = ?, " +
+          "modified_date = CURRENT_TIMESTAMP " +
+          "WHERE id = ?";
+
+        // Execute the query for each value
+        await new Promise((resolve, reject) => {
+          connection.query(
+            updateQuery,
+            [
+              account_no,
+              broker_name,
+              profit,
+              service_cost,
+              cost_in_rupiah,
+              modified_by,
+              id,
+            ],
+            (err, results) => {
+              if (err) {
+                console.error("Error executing query: ", err);
+                reject(err);
+              } else {
+                console.log("success");
+                resolve(results);
+              }
+            }
+          );
+        });
+      })
+    );
+
+    // Release the connection
+    connection.release();
+
+    res.status(200).json({ message: "success" });
+  } catch (error) {
+    console.error("Error in PUT request: ", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -432,6 +512,21 @@ router.post("/input-invoice-summary/create", (req, res) => {
     created_by,
     owner,
   } = req.body;
+  console.log(
+    invoiceNo,
+    date,
+    clientName,
+    serviceFee,
+    rate,
+    city,
+    country,
+    bankName,
+    beneficiaryName,
+    accountNumber,
+    totalAmountInRupiah,
+    created_by,
+    owner
+  );
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
@@ -464,8 +559,8 @@ router.post("/input-invoice-summary/create", (req, res) => {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      const message = `created a new input invoice (${invoiceNo}) on`;
-      addNotification(created_by, message, created_by);
+      // const message = `created a new input invoice (${invoiceNo}) on`;
+      // addNotification(created_by, message, created_by);
       res.status(200).json({ message: "success", data: results });
     });
   });
@@ -665,6 +760,7 @@ router.put(
       bankName,
       beneficiaryName,
       bankNo,
+      totalAmount,
       modifiedBy,
     } = req.body;
 
@@ -677,6 +773,7 @@ router.put(
       bankName,
       beneficiaryName,
       bankNo,
+      totalAmount,
       modifiedBy,
       invoiceId,
     ];
@@ -687,15 +784,15 @@ router.put(
         return;
       }
       let query =
-        "UPDATE invoice_summary SET client_name = ? ,service_fee = ? ,rate = ? ,city = ? ,country = ? , bank_name = ? ,bank_beneficiary = ? ,bank_no = ? ,modified_by = ? ,modified_date = CURRENT_TIMESTAMP  WHERE id = ? ";
+        "UPDATE invoice_summary SET client_name = ? ,service_fee = ? ,rate = ? ,city = ? ,country = ? , bank_name = ? ,bank_beneficiary = ? ,bank_no = ? , total_amount = ? ,modified_by = ? ,modified_date = CURRENT_TIMESTAMP  WHERE id = ? ";
       connection.query(query, values, (err, results) => {
         connection.release();
         if (err) {
           res.status(500).json({ error: "Internal server error" });
           return;
         }
-        const message = `updated an input invoice (${invoiceNo}) on`;
-        addNotification(modifiedBy, message, modifiedBy);
+        // const message = `updated an input invoice (${invoiceNo}) on`;
+        // addNotification(modifiedBy, message, modifiedBy);
         res
           .status(200)
           .json({ message: "invoice deleted successfully", results });
@@ -744,8 +841,8 @@ router.delete(
           res.status(500).json({ error: "Internal server error" });
           return;
         }
-        const message = `deleted an input invoice (${invoiceNo}) on`;
-        addNotification(deletedBy, message, deletedBy);
+        // const message = `deleted an input invoice (${invoiceNo}) on`;
+        // addNotification(deletedBy, message, deletedBy);
         res
           .status(200)
           .json({ message: "invoice deleted successfully", results });

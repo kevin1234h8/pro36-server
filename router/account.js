@@ -7,6 +7,8 @@ router.get("/", jwtUtils.verify, (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 20;
   const searchQuery = req.query.search || "";
+  const accountNo = req.query.accountNo || "";
+  const searchBy = req.query.searchBy || "account_no";
   const offset = (page - 1) * pageSize;
   const owner = req.query.owner || "";
   const countValues = [];
@@ -30,15 +32,19 @@ router.get("/", jwtUtils.verify, (req, res) => {
     let dataQuery = "";
 
     if (req.user.level === 1) {
-      countQuery = "SELECT COUNT(*) as count FROM account WHERE status = 1";
+      countQuery = "SELECT COUNT(*) as count FROM account a WHERE status = 1";
       if (searchQuery !== "") {
-        countQuery += " AND client_name LIKE ?";
+        countQuery += ` AND a.${searchBy} LIKE ?`;
+        countValues.unshift(`%${searchQuery}%`);
+      }
+      if (accountNo !== "") {
+        countQuery += " AND account_no LIKE ?";
         countValues.unshift(`%${searchQuery}%`);
       }
 
       dataQuery = `SELECT a.*, s.status FROM account a 
                     LEFT JOIN status s ON a.status = s.id 
-                    WHERE a.status = 1 AND client_name LIKE ?`;
+                    WHERE a.status = 1 AND a.${searchBy} LIKE ?  `;
       queryValues.unshift(`%${searchQuery}%`);
 
       if (owner !== "") {
@@ -54,13 +60,13 @@ router.get("/", jwtUtils.verify, (req, res) => {
                     LEFT JOIN user u ON a.owner = u.id 
                     WHERE status = 1 AND u.level NOT IN (1)`;
       if (searchQuery !== "") {
-        countQuery += " AND client_name LIKE ?";
+        countQuery += ` AND a.${searchBy} LIKE ?`;
         countValues.unshift(`%${searchQuery}%`);
       }
       dataQuery = `SELECT a.*, s.status FROM account a 
                     LEFT JOIN status s ON a.status = s.id 
                     LEFT JOIN user u ON a.owner = u.id 
-                    WHERE a.status = 1 AND client_name LIKE ? AND u.level NOT IN (1)`;
+                    WHERE a.status = 1 AND a.${searchBy} LIKE ? AND u.level NOT IN (1)`;
       queryValues.unshift(`%${searchQuery}%`);
 
       if (createdDate !== "") {
@@ -72,13 +78,13 @@ router.get("/", jwtUtils.verify, (req, res) => {
                     LEFT JOIN user u ON a.owner = u.id 
                     WHERE status = 1 AND u.level NOT IN (1,2)`;
       if (searchQuery !== "") {
-        countQuery += " AND client_name LIKE ?";
+        countQuery += ` AND a.${searchBy} LIKE ?`;
         countValues.unshift(`%${searchQuery}%`);
       }
       dataQuery = `SELECT a.*, s.status FROM account a 
                     LEFT JOIN status s ON a.status = s.id 
                     LEFT JOIN user u ON a.owner = u.id 
-                    WHERE a.status = 1 AND client_name LIKE ? AND u.level NOT IN (1 , 2)`;
+                    WHERE a.status = 1 AND a.${searchBy} LIKE ? AND u.level NOT IN (1 , 2)`;
       queryValues.unshift(`%${searchQuery}%`);
 
       if (createdDate !== "") {
@@ -87,7 +93,8 @@ router.get("/", jwtUtils.verify, (req, res) => {
       }
     }
 
-    dataQuery += " ORDER BY created_date DESC LIMIT ? OFFSET ?";
+    dataQuery +=
+      " ORDER BY a.regist_date DESC, a.created_date DESC LIMIT ? OFFSET ?";
     queryValues.push(pageSize, offset);
 
     console.log(dataQuery, queryValues);
@@ -190,9 +197,9 @@ router.post("/create", limiter, (req, res) => {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      const userId = created_by; // Assuming the created_by value represents the user ID
-      const message = `created a new account (${client_name}) on`;
-      addNotification(userId, message, created_by);
+      // const userId = created_by; // Assuming the created_by value represents the user ID
+      // const message = `created a new account (${client_name}) on`;
+      // addNotification(userId, message, created_by);
 
       res.status(200).json({ message: "success", data: results });
     });
@@ -246,8 +253,8 @@ router.put("/:id", async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      const message = `edited an account (${client_name}) on`;
-      addNotification(modified_by, message, modified_by);
+      // const message = `edited an account (${client_name}) on`;
+      // addNotification(modified_by, message, modified_by);
       res.status(200).json({ message: "success", data: results });
     });
   });
@@ -271,8 +278,8 @@ router.put("/delete/:id", (req, res) => {
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      const message = `deleted an account on`;
-      addNotification(deleted_by, message, deleted_by);
+      // const message = `deleted an account on`;
+      // addNotification(deleted_by, message, deleted_by);
       res.status(200).json({ message: "success", data: results });
     });
   });

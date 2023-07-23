@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const { query } = require("express");
 const pool = require("../database/connection");
 const jwtUtils = require("../utils/jwtUtils");
 
@@ -42,7 +43,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
       }
       sql += " ORDER BY date DESC";
     } else if (req.user.level === 2) {
-      sqlCount = `SELECT COUNT(*) FROM invoice_summary invsum
+      sqlCount = `SELECT COUNT(*) as count FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1)`;
       if (startDate != undefined || endDate != undefined) {
         sqlCount +=
@@ -66,7 +67,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
       }
       sql += " ORDER BY invsum.date DESC";
     } else if (req.user.level === 3) {
-      sqlCount = `SELECT COUNT(*) FROM invoice_summary invsum
+      sqlCount = `SELECT COUNT(*) as count FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1,2)`;
       if (startDate != undefined || endDate != undefined) {
         sqlCount +=
@@ -93,6 +94,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
 
     sql += " LIMIT ? OFFSET ?";
     values.push(pageSize, offset);
+    console.log(sql, values);
     connection.query(sqlCount, valuesCount, (err, countResult) => {
       if (err) {
         connection.release();
