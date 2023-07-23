@@ -23,8 +23,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
     if (req.user.level === 1) {
       sqlCount = "SELECT COUNT(*) as count FROM invoice_summary WHERE 1 = 1";
       if (startDate != undefined || endDate != undefined) {
-        sqlCount +=
-          " AND STR_TO_DATE(date, '%Y-%m-%d') BETWEEN STR_TO_DATE(?, '%Y-%m-%d') AND STR_TO_DATE(?, '%Y-%m-%d')";
+        sqlCount += " AND date BETWEEN ? AND ? ";
         valuesCount.unshift(startDate, endDate);
       }
       if (clientName !== "") {
@@ -33,8 +32,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
       }
       sql = `SELECT * FROM invoice_summary WHERE 1 = 1`;
       if (startDate != undefined || endDate != undefined) {
-        sql +=
-          " AND STR_TO_DATE(date, '%Y-%m-%d') BETWEEN STR_TO_DATE(?, '%Y-%m-%d') AND STR_TO_DATE(?, '%Y-%m-%d')";
+        sql += " AND date BETWEEN  ? AND  ?";
         values.unshift(startDate, endDate);
       }
       if (clientName != "") {
@@ -46,8 +44,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
       sqlCount = `SELECT COUNT(*) as count FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1)`;
       if (startDate != undefined || endDate != undefined) {
-        sqlCount +=
-          " AND STR_TO_DATE(date, '%Y-%m-%d') BETWEEN STR_TO_DATE(?, '%Y-%m-%d') AND STR_TO_DATE(?, '%Y-%m-%d')";
+        sqlCount += " AND invsum.date BETWEEN  ? AND  ?";
         valuesCount.unshift(startDate, endDate);
       }
       if (clientName !== "") {
@@ -57,8 +54,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
       sql = `SELECT invsum.* FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id  WHERE 1 = 1 AND u.level NOT in (1)`;
       if (startDate != undefined || endDate != undefined) {
-        sql +=
-          " AND STR_TO_DATE(invsum.date, '%Y-%m-%d') BETWEEN STR_TO_DATE(?, '%Y-%m-%d') AND STR_TO_DATE(?, '%Y-%m-%d')";
+        sql += "  AND invsum.date BETWEEN  ? AND  ?";
         values.unshift(startDate, endDate);
       }
       if (clientName != "") {
@@ -70,8 +66,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
       sqlCount = `SELECT COUNT(*) as count FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id WHERE 1 = 1  AND u.level NOT in (1,2)`;
       if (startDate != undefined || endDate != undefined) {
-        sqlCount +=
-          " AND STR_TO_DATE(date, '%Y-%m-%d') BETWEEN STR_TO_DATE(?, '%Y-%m-%d') AND STR_TO_DATE(?, '%Y-%m-%d')";
+        sqlCount += "  AND invsum.date BETWEEN  ? AND  ?";
         valuesCount.unshift(startDate, endDate);
       }
       if (clientName !== "") {
@@ -81,8 +76,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
       sql = `SELECT invsum.* FROM invoice_summary invsum
       LEFT JOIN user u ON invsum.owner = u.id  WHERE 1 = 1 AND u.level NOT in (1,2)`;
       if (startDate != undefined || endDate != undefined) {
-        sql +=
-          " AND STR_TO_DATE(invsum.date, '%Y-%m-%d') BETWEEN STR_TO_DATE(?, '%Y-%m-%d') AND STR_TO_DATE(?, '%Y-%m-%d')";
+        sql += " AND invsum.date BETWEEN  ? AND  ?";
         values.unshift(startDate, endDate);
       }
       if (clientName != "") {
@@ -94,7 +88,8 @@ router.get("/", jwtUtils.verify, (req, res) => {
 
     sql += " LIMIT ? OFFSET ?";
     values.push(pageSize, offset);
-    console.log(sql, values);
+    console.log("sql : ", sql);
+    console.log("vlues : ", values);
     connection.query(sqlCount, valuesCount, (err, countResult) => {
       if (err) {
         connection.release();
