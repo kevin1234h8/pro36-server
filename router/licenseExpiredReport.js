@@ -11,6 +11,7 @@ router.get("/", jwtUtils.verify, (req, res) => {
   const endDate = req.query.endDate;
   const values = [];
   const valuesCount = [];
+  console.log(search);
   pool.getConnection((err, connection) => {
     if (err) {
       res.status(500).json({ error: "Internal server error" });
@@ -98,7 +99,8 @@ router.get("/", jwtUtils.verify, (req, res) => {
     }
     sql += " LIMIT ? OFFSET ?";
     values.push(pageSize, offset);
-
+    console.log(sql);
+    console.log("values", values);
     connection.query(sqlCount, valuesCount, (err, countResult) => {
       if (err) {
         connection.release();

@@ -97,8 +97,6 @@ router.get("/", jwtUtils.verify, (req, res) => {
       " ORDER BY a.regist_date DESC, a.created_date DESC LIMIT ? OFFSET ?";
     queryValues.push(pageSize, offset);
 
-    console.log(dataQuery, queryValues);
-
     connection.query(countQuery, countValues, (err, countResult) => {
       if (err) {
         connection.release();
@@ -308,7 +306,6 @@ const addNotification = (userId, message, createdBy) => {
   const id = v4();
   const query = `INSERT INTO notifications (id , user_id, message , created_by , part) VALUES (? , ?, ? , ? , 'New Account')`;
   const values = [id, userId, message, createdBy];
-  console.log("values : ", values);
   pool.getConnection((err, connection) => {
     if (err) {
       console.error("Error getting database connection: ", err);
